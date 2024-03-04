@@ -1,0 +1,23 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "3a4b576b71fbe4d7760d484a1e59a884"
+name = "gwp-builder-app"
+application_url = "https://donated-plane-ja-previously.trycloudflare.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "andrewbaklytsky.myshopify.com"
+
+[auth]
+redirect_urls = [
+  "https://donated-plane-ja-previously.trycloudflare.com/auth/callback",
+  "https://donated-plane-ja-previously.trycloudflare.com/auth/shopify/callback",
+  "https://donated-plane-ja-previously.trycloudflare.com/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+[pos]
+embedded = false
