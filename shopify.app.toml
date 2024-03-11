@@ -2,7 +2,7 @@
 
 client_id = "3a4b576b71fbe4d7760d484a1e59a884"
 name = "gwp-builder-app"
-application_url = "https://donated-plane-ja-previously.trycloudflare.com"
+application_url = "https://contemporary-thumbs-liquid-boom.trycloudflare.com"
 embedded = true
 
 [build]
@@ -11,9 +11,9 @@ dev_store_url = "andrewbaklytsky.myshopify.com"
 
 [auth]
 redirect_urls = [
-  "https://donated-plane-ja-previously.trycloudflare.com/auth/callback",
-  "https://donated-plane-ja-previously.trycloudflare.com/auth/shopify/callback",
-  "https://donated-plane-ja-previously.trycloudflare.com/api/auth/callback"
+  "https://contemporary-thumbs-liquid-boom.trycloudflare.com/auth/callback",
+  "https://contemporary-thumbs-liquid-boom.trycloudflare.com/auth/shopify/callback",
+  "https://contemporary-thumbs-liquid-boom.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]

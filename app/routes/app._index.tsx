@@ -1,9 +1,9 @@
 import {useCallback, useState} from "react";
-import type {LoaderFunctionArgs} from "@remix-run/node";
+import type {ActionFunctionArgs, LoaderFunctionArgs} from "@remix-run/node";
 import { json } from "@remix-run/node";
-import {useLoaderData} from "@remix-run/react";
+import {useActionData, useLoaderData, useNavigation, useSubmit} from "@remix-run/react";
 import {
-  Button, Grid,
+  Button, Grid, Form, FormLayout, Box,
   InlineStack, LegacyCard, MediaCard,
   Page,
   PageActions,
@@ -12,88 +12,69 @@ import {
 import { authenticate } from "../shopify.server";
 import createApp from '@shopify/app-bridge';
 import { ResourcePicker }  from '@shopify/app-bridge/actions';
+import {createGWP, GetGWP} from "../api/prisma.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
+  const allGwp = await GetGWP()
 
   return json({
     apiKey: process.env.SHOPIFY_API_KEY || "",
-    host: new URLSearchParams(request.url).get("host") || ""
+    host: new URLSearchParams(request.url).get("host") || "",
+    allGwp: allGwp
   });
 };
 
-// export const action = async ({ request }: ActionFunctionArgs) => {
-//   const { admin } = await authenticate.admin(request);
-//   const color = ["Red", "Orange", "Yellow", "Green"][
-//     Math.floor(Math.random() * 4)
-//   ];
-//   const response = await admin.graphql(
-//     `#graphql
-//       mutation populateProduct($input: ProductInput!) {
-//         productCreate(input: $input) {
-//           product {
-//             id
-//             title
-//             handle
-//             status
-//             variants(first: 10) {
-//               edges {
-//                 node {
-//                   id
-//                   price
-//                   barcode
-//                   createdAt
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }`,
-//     {
-//       variables: {
-//         input: {
-//           title: `${color} Snowboard`,
-//           variants: [{ price: Math.random() * 100 }],
-//         },
-//       },
-//     },
-//   );
-//   const responseJson = await response.json();
-//
-//   return json({
-//     product: responseJson.data?.productCreate?.product,
-//   });
-// };
+export const action = async ({ request }: ActionFunctionArgs) => {
+  await authenticate.admin(request);
+  const formData = await request.formData();
+  const variant = formData.get("variant");
+  const threshold = formData.get("threshold");
+  let result: any;
+
+  try {
+    result = await createGWP({
+      variant: variant,
+      threshold: threshold
+    })
+  } catch (e) {
+    result = e
+  }
+
+  // const result = await createGWP({
+  //   variant: variant,
+  //   threshold: threshold
+  // })
+
+  return json({
+    result: result,
+  });
+};
 
 export default function Index() {
-  // const nav = useNavigation();
-  // const actionData = useActionData<typeof action>();
-  // const submit = useSubmit();
-  // const isLoading =
-  //   ["loading", "submitting"].includes(nav.state) && nav.formMethod === "POST";
-  // const productId = actionData?.product?.id.replace(
-  //   "gid://shopify/Product/",
-  //   "",
-  // );
+  const nav = useNavigation();
+  const actionData = useActionData<typeof action>();
+  const submit = useSubmit();
+  const { apiKey, host, allGwp }: { apiKey: string; host: string, allGwp: [] } = useLoaderData();
+  const isLoading = ["loading", "submitting"].includes(nav.state) && nav.formMethod === "POST";
+  const [threshold, setThreshold] = useState('');
+  const [variant, setVariant] = useState<Record<string, any>>({});
+  const handleThresholdChange = useCallback((value: string) => setThreshold(value), []);
 
-  const { apiKey, host }: { apiKey: string; host: string } = useLoaderData();
+  const saveSelection = () => submit({ threshold, variant }, { replace: true, method: "POST" });
+  const primaryPageAction = {
+    content: 'Add GWP',
+    onClick: saveSelection,
+    loading: isLoading
+  }
+
   const config = {
     apiKey: apiKey,
     host: host,
-    forceRedirect: true
+    allGwp: allGwp
   }
 
   console.log(config, 'config')
-
-  // useEffect(() => {
-  //   if (productId) {
-  //     shopify.toast.show("Product created");
-  //   }
-  // }, [productId]);
-  // const generateProduct = () => submit({}, { replace: true, method: "POST" });
-
-  const [threshold, setThreshold] = useState('');
-  const handleThresholdChange = useCallback((value: string) => setThreshold(value), []);
   const generateResourcePicker = () => {
     const app = createApp(config);
     const picker = ResourcePicker.create(app, {
@@ -103,17 +84,12 @@ export default function Index() {
         showHidden: false,
       }
     });
-    picker.subscribe(ResourcePicker.Action.SELECT, (payload: any) => {
-      console.log(payload.selection);
+    picker.subscribe(ResourcePicker.Action.SELECT, async (payload: any) => {
+      const variant = payload.selection[0].variants[0]
+      setVariant(variant)
+      console.log(variant);
     });
     picker.dispatch(ResourcePicker.Action.OPEN);
-  }
-  const saveSelection = () => {
-    console.log('Saved')
-  }
-  const primaryPageAction = {
-    content: 'Add GWP',
-    onClick: saveSelection
   }
 
   // @ts-ignore
@@ -141,30 +117,70 @@ export default function Index() {
       </MediaCard>
 
       <div style={{margin: '1rem 0'}}>
-        <Grid>
-          <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 6, lg: 6, xl: 6}}>
-            <LegacyCard title="Threshold" sectioned>
-              <TextField
-                value={String(threshold)}
-                onChange={handleThresholdChange}
-                type="number"
-                label={''}
-                autoComplete={''}
-              />
-            </LegacyCard>
-          </Grid.Cell>
-          <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 6, lg: 6, xl: 6}}>
-            <LegacyCard title="Product variant" sectioned>
-              <Button variant="secondary" onClick={generateResourcePicker}>
-                Choose product variant
-              </Button>
-            </LegacyCard>
-          </Grid.Cell>
-        </Grid>
+        <Form onSubmit={saveSelection} method="post">
+          <FormLayout>
+            <Grid>
+              <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 6, lg: 6, xl: 6}}>
+                <LegacyCard title="Threshold" sectioned>
+                  <TextField
+                    name="threshold"
+                    value={String(threshold)}
+                    onChange={handleThresholdChange}
+                    type="number"
+                    label={''}
+                    requiredIndicator
+                    autoComplete="off"
+                  />
+                </LegacyCard>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 6, lg: 6, xl: 6}}>
+                <LegacyCard title="Product variant" sectioned>
+                  <TextField
+                    name="variant"
+                    label="ID"
+                    value={String(variant?.id ? variant.id : '')}
+                    requiredIndicator
+                    autoComplete="off"
+                    readOnly/>
+                  <div style={{margin: '1rem 0'}}>
+                    <TextField
+                      name="variantTitle"
+                      label="Title"
+                      value={String(variant?.displayName ? variant.displayName : '')}
+                      autoComplete="off"
+                      readOnly/>
+                  </div>
+                  <Button variant="secondary" onClick={generateResourcePicker}>
+                    {String(variant?.id ? 'Change' : 'Choose')} product variant
+                  </Button>
+                </LegacyCard>
+              </Grid.Cell>
+            </Grid>
+          </FormLayout>
+
+
+          <div style={{margin: '1rem 0'}}>
+            {actionData?.result && (
+              <Box
+                padding="400"
+                background="bg-surface-active"
+                borderWidth="025"
+                borderRadius="200"
+                borderColor="border"
+                overflowX="scroll"
+              >
+              <pre style={{margin: 0}}>
+                <code>{JSON.stringify(actionData.result, null, 2)}</code>
+              </pre>
+              </Box>
+            )}
+          </div>
+        </Form>
       </div>
 
+
       <InlineStack gap="500">
-        <Button variant="primary" onClick={saveSelection}>Add GWP</Button>
+        <Button loading={isLoading} variant="primary" onClick={saveSelection}>Add GWP</Button>
       </InlineStack>
 
       {/*<BlockStack gap="500">*/}
